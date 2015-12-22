@@ -1,0 +1,306 @@
+/*
+  Web client
+
+ This sketch connects to a website 
+ using Wi-Fi functionality on MediaTek LinkIt platform.
+
+ Change the macro WIFI_AP, WIFI_PASSWORD, WIFI_AUTH and SITE_URL accordingly.
+
+ created 13 July 2010
+ by dlf (Metodo2 srl)
+ modified 31 May 2012
+ by Tom Igoe
+ modified 20 Aug 2014
+ by MediaTek Inc.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <unistd.h>
+#include <vmsock.h>
+#include <net.h>
+#include <mtk.h>
+
+#include <signal.h>
+#include <limits.h>
+#include "aws_iot_mqtt_interface.h"
+#include "aws_iot_version.h"
+#include "aws_iot_log.h"
+#include "aws_mtk_iot_config.h"
+#ifdef connect
+#undef connect
+#endif
+#include <LTask.h>
+#include <LWiFi.h>
+#include <LWiFiClient.h>
+
+/**
+ * @brief Default MQTT HOST URL is pulled from the aws_iot_config.h
+ */
+char HostAddress[255] = AWS_IOT_MQTT_HOST;
+/**
+ * @brief Default MQTT port is pulled from the aws_iot_config.h
+ */
+VMINT port = AWS_IOT_MQTT_PORT;
+/**
+ * @brief This parameter will avoid infinite loop of publish and exit the program after certain number of publishes
+ */
+uint32_t publishCount = 1;
+
+char cafileName[] = AWS_IOT_ROOT_CA_FILENAME;
+char clientCRTName[] = AWS_IOT_CERTIFICATE_FILENAME;
+char clientKeyName[] = AWS_IOT_PRIVATE_KEY_FILENAME;
+
+LWiFiClient c;
+bool infinitePublishFlag;
+char cPayload[100];
+int32_t i;
+int rc;
+
+int32_t MQTTcallbackHandler(MQTTCallbackParams params) {
+
+  Serial.println("Subscribe callback");
+        Serial.print("Topic Name is ");
+        Serial.println(params.pTopicName);
+
+        Serial.print("Message is ");
+        Serial.println((char*)params.MessageParams.pPayload);
+        
+        if(strcmp((char*)params.MessageParams.pPayload,"21")==0){
+          Serial.print("inside 21 if");
+          digitalWrite(2, HIGH);  
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"20")==0){
+          digitalWrite(2, LOW); 
+           Serial.print("inside 20 if"); 
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"31")==0){
+          digitalWrite(3, HIGH); 
+         Serial.print("inside 31 if");  
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"30")==0){
+          digitalWrite(3, LOW);  
+          Serial.print("inside 30 if"); 
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"41")==0){
+          digitalWrite(4, HIGH);  
+          Serial.print("inside 41 if"); 
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"40")==0){
+          digitalWrite(4, LOW);  
+          Serial.print("inside 40 if"); 
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"51")==0){
+          digitalWrite(5, HIGH); 
+         Serial.print("inside 51 if");  
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"50")==0){
+          digitalWrite(5, LOW);  
+          Serial.print("inside 50 if"); 
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"61")==0){
+          digitalWrite(6, HIGH);  
+          Serial.print("inside 61 if"); 
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"60")==0){
+          digitalWrite(6, LOW);  
+          Serial.print("inside 60 if"); 
+          delay(1000);
+         } else if(strcmp((char*)params.MessageParams.pPayload,"71")==0){
+          digitalWrite(7, HIGH); 
+         Serial.print("inside 71 if");  
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"70")==0){
+          digitalWrite(7, LOW);  
+          Serial.print("inside 70 if"); 
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"81")==0){
+          digitalWrite(8, HIGH);  
+          Serial.print("inside 81 if"); 
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"80")==0){
+          digitalWrite(8, LOW);  
+          Serial.print("inside 80 if"); 
+          delay(1000);
+         } else if(strcmp((char*)params.MessageParams.pPayload,"91")==0){
+          digitalWrite(9, HIGH); 
+         Serial.print("inside 91 if");  
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"90")==0){
+          digitalWrite(9, LOW);  
+          Serial.print("inside 90 if"); 
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"11")==0){
+          digitalWrite(10, HIGH);  
+          Serial.print("inside 100 if"); 
+          delay(1000);
+        } else if(strcmp((char*)params.MessageParams.pPayload,"10")==0){
+          digitalWrite(10, LOW);  
+          Serial.print("inside 101 if"); 
+          delay(1000);
+        }
+
+//  INFO("%.*s\t%.*s",
+//      (int)params.TopicNameLen, params.pTopicName,
+//      (int)params.MessageParams.PayloadLen, (char*)params.MessageParams.pPayload);
+
+  return 0;
+}
+
+void disconnectCallbackHandler(void) {
+	Serial.println("MQTT Disconnect");
+}
+
+MQTTConnectParams connectParams;
+MQTTSubscribeParams subParams;
+MQTTMessageParams Msg;
+MQTTPublishParams Params;
+
+// invoked in main thread context
+void bearer_callback(VMINT handle, VMINT event, VMUINT data_account_id, void *user_data)
+{
+    if (VM_BEARER_WOULDBLOCK == g_bearer_hdl)
+    {
+        g_bearer_hdl = handle;
+    }
+    
+    switch (event)
+    {
+        case VM_BEARER_DEACTIVATED:
+            break;
+        case VM_BEARER_ACTIVATING:
+            break;
+        case VM_BEARER_ACTIVATED:
+              /************************ Add your code here ************************/ 
+            
+              rc = NONE_ERROR;
+              i = 0;
+              infinitePublishFlag = true;
+  
+              connectParams = MQTTConnectParamsDefault;
+  
+              connectParams.KeepAliveInterval_sec = 10;
+              connectParams.isCleansession = true;
+              connectParams.MQTTVersion = MQTT_3_1_1;
+              connectParams.pClientID = "CSDK-test-device";
+              connectParams.pHostURL = HostAddress;
+              connectParams.port = port;
+              connectParams.isWillMsgPresent = false;
+              connectParams.pRootCALocation = cafileName;
+              connectParams.pDeviceCertLocation = clientCRTName;
+              connectParams.pDevicePrivateKeyLocation = clientKeyName;
+              connectParams.mqttCommandTimeout_ms = 2000;
+	      connectParams.tlsHandshakeTimeout_ms = 5000;
+	      connectParams.isSSLHostnameVerify = true;// ensure this is set to true for production
+	      connectParams.disconnectHandler = disconnectCallbackHandler;
+  
+              rc = aws_iot_mqtt_connect(&connectParams);
+              if (NONE_ERROR != rc) {
+                  Serial.println("Error in connecting...");
+              }
+  
+              subParams = MQTTSubscribeParamsDefault;
+              subParams.mHandler = MQTTcallbackHandler;
+              subParams.pTopic = AWS_IOT_TOPIC_NAME;
+              subParams.qos = QOS_0;
+              
+              if (NONE_ERROR == rc) {
+                  Serial.print("Subscribing...");
+                  rc = aws_iot_mqtt_subscribe(&subParams);
+                  Serial.println("*** Subscried to AWS ***");
+              
+                  if (NONE_ERROR != rc) {
+                      Serial.println("failed in iot_mqtt_subscribe.");
+                  }
+              }
+              Msg = MQTTMessageParamsDefault;
+              Msg.qos = QOS_0;
+              Msg.isRetained = false;
+              
+              sprintf(cPayload, "%s", "ON");
+              Msg.pPayload = (void *) cPayload;
+              Msg.PayloadLen = strlen(cPayload) + 1;
+  
+              Params = MQTTPublishParamsDefault;
+              Params.pTopic = AWS_IOT_TOPIC_NAME;
+              Params.MessageParams = Msg;
+
+              if(publishCount != 0){
+                  infinitePublishFlag = false;  
+              }
+  
+              while (NONE_ERROR == rc && (publishCount > 0 || infinitePublishFlag)) {
+                    rc = aws_iot_mqtt_yield(1000); //please don't try to put it lower than 1000, otherwise it may going to timeout easily and no response  
+                    Serial.println("-->sleep");
+                    delay(1000);
+                    //sprintf(cPayload, "%s : %d ", "hello from SDK2", i++);
+                    Serial.println("*** Publishing to AWS***");
+                    rc = aws_iot_mqtt_publish(&Params);
+                    
+                    Serial.println("*** Published to AWS*** ");
+                    Serial.println(rc);
+                    if(publishCount > 0){
+                        publishCount--;
+                    }
+              }
+              while(NONE_ERROR == rc && true){
+                rc = aws_iot_mqtt_yield(1000); //please don't try to put it lower than 1000, otherwise it may going to timeout easily and no response  
+                Serial.print(".");
+                delay(1000);
+              }
+              if(NONE_ERROR != rc){
+              Serial.println("An error occurred in the loop.\n");
+              }
+              else{
+              Serial.println("Publish done\n");
+              }
+              
+              /************************ End for your own code ************************/ 
+              break;
+        case VM_BEARER_DEACTIVATING:
+            break;
+        default:
+            break;
+    }
+}
+
+boolean bearer_open(void* ctx){
+    g_bearer_hdl = vm_bearer_open(VM_BEARER_DATA_ACCOUNT_TYPE_WLAN,  NULL, bearer_callback);
+    return true;
+}
+
+void setup()
+{
+  LWiFi.begin();
+  Serial.begin(9600);
+  while(!Serial)
+    delay(100);
+
+  // keep retrying until connected to AP
+  Serial.print("  . Connecting to AP...");
+  while (0 == LWiFi.connect(WIFI_AP, LWiFiLoginInfo(WIFI_AUTH, WIFI_PASSWORD)))
+  {
+    delay(1000);
+  }
+  Serial.println("ok");
+
+  CONNECT_IP_ADDRESS = IP_ADDRESS;
+  CONNECT_PORT = port;
+  
+  pinMode(2, OUTPUT); //red
+  pinMode(3, OUTPUT); //green
+  pinMode(4, OUTPUT); //blue
+  pinMode(5, OUTPUT); //red
+  pinMode(6, OUTPUT); //green
+  pinMode(7, OUTPUT); //blue
+  pinMode(8, OUTPUT); //red
+  pinMode(9, OUTPUT); //green
+  pinMode(10, OUTPUT); //blue
+  
+  LTask.remoteCall(bearer_open, NULL);
+}
+
+void loop()
+{
+}

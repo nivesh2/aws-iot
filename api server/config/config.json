@@ -1,0 +1,10 @@
+{
+	"host": "A2Q5YCKG5SWR6X.iot.us-west-2.amazonaws.com",
+	"port": 8883,
+	"region":"us-west-2",
+	"clientId": "digit",
+	"thingName": "digit",
+	"caCert": "root-CA.crt",
+	"clientCert": "certificate.pem.crt",
+	"privateKey": "private.pem.key"
+}
